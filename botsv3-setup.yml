@@ -62,7 +62,7 @@
 
     - name: Add Tutorial Data to Splunk Monitoring
       become_user: splunk
-      shell: "/opt/splunk/bin/splunk add monitor /tmp/tutorialdata.zip -host_segment 3 -disabled 0"
+      shell: "/opt/splunk/bin/splunk add monitor /tmp/tutorialdata.zip -host_segment 3 -disabled 0 -auth admin:{{ splunk_instance.splunk_admin_password }}"
       args:
         executable: /bin/bash
 
