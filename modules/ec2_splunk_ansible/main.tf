@@ -23,7 +23,7 @@ resource "local_file" "pem_file" {
 # ✅ Add a 25-second wait before creating Ansible files
 resource "null_resource" "wait_for_ssh_ready" {
   provisioner "local-exec" {
-    command = "sleep 25"
+    command = "sleep 85"
   }
 
   triggers = {
