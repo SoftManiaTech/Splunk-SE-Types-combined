@@ -14,7 +14,7 @@
     
     - name: Pause to ensure file download completion
       pause:
-        seconds: 160
+        seconds: 180
     
     - name: Download and Add Tutorial Data to Splunk Monitoring
       become: yes
