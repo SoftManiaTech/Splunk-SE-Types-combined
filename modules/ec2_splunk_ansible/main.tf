@@ -27,7 +27,7 @@ resource "local_file" "ansible_inventory" {
 
   content = <<EOF
 [splunk]
-${var.instance_name} ansible_host=${module.base.public_ip} ansible_user=ec2-user ansible_ssh_private_key_file=${module.base.final_key_name}.pem
+${var.instance_name} ansible_host=${module.base.public_ip} ansible_user=ec2-user ansible_ssh_private_key_file=${abspath("${path.module}/${module.base.final_key_name}.pem")}
 EOF
 }
 
