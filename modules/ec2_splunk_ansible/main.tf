@@ -45,7 +45,7 @@ EOF
 
 resource "null_resource" "wait_for_ssh" {
   provisioner "local-exec" {
-    command = "for i in {1..15}; do nc -zv ${module.base.public_ip} 22 && exit 0 || sleep 10; done; echo 'SSH not ready' && exit 1"
+    command = "for i in {1..30}; do nc -zv ${module.base.public_ip} 22 && exit 0 || sleep 10; done; echo 'SSH not ready' && exit 1"
   }
 }
 
