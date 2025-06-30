@@ -1,0 +1,11 @@
+aws_region     = "us-east-1"
+build_mode     = "splunk_ansible" # options: ec2_only, splunk_install, splunk_ansible
+instance_name  = "splunk-server"
+usermail       = "kaliyappanr.tech@gmail.com"
+key_name       = "kali"
+instance_type  = "t2.medium"
+storage_size   = 30
+quotahours     = 20
+hoursperday    = 5
+category       = "splunk-se"
+planstartdate  = "2025-06-30T00:00:00Z"

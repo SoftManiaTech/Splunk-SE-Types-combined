@@ -1,0 +1,11 @@
+variable "aws_region" {}
+variable "instance_name" {}
+variable "usermail" {}
+variable "key_name" {}
+variable "instance_type" {}
+variable "storage_size" {}
+variable "quotahours" {}
+variable "hoursperday" {}
+variable "category" {}
+variable "planstartdate" {}
+variable "user_data" {}
