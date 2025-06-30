@@ -1,5 +1,5 @@
 aws_region     = "us-east-1"
-build_mode     = "splunk_ansible" # options: ec2_only, splunk_install, splunk_ansible
+build_mode     = "splunk_install" # options: ec2_only, splunk_install, splunk_ansible
 instance_name  = "splunk-server"
 usermail       = "kaliyappanr.tech@gmail.com"
 key_name       = "kali"
