@@ -43,13 +43,13 @@
     - name: Pause to ensure file download completion
       pause:
         seconds: 160
-    
+
     - name: Ensure Splunk User Exists
       user:
         name: splunk
         shell: /bin/bash
         createhome: yes
-        
+
     - name: Download Tutorial Data
       get_url:
         url: "{{ tutorial_data_url }}"
@@ -67,29 +67,30 @@
         executable: /bin/bash
 
     - name: Download and Install Splunk Sample Data Apps
-      become_user: splunk
-      loop: "{{ sample_data_apps }}"
-      loop_control:
-        loop_var: app_url
       block:
-        - name: Download Sample Data App
-          get_url:
-            url: "{{ app_url }}"
-            dest: "/tmp/{{ app_url | basename }}"
-            mode: '0644'
-          register: sample_app
-          retries: 3
-          delay: 10
-          until: sample_app is succeeded
+        - name: Download and Install Sample Data Apps
+          become_user: splunk
+          loop: "{{ sample_data_apps }}"
+          loop_control:
+            loop_var: app_url
+          block:
+            - name: Download Sample Data App
+              get_url:
+                url: "{{ app_url }}"
+                dest: "/tmp/{{ app_url | basename }}"
+                mode: '0644'
+              register: sample_app
+              retries: 3
+              delay: 10
+              until: sample_app is succeeded
 
-        - name: Install Sample Data App
-          shell: "/opt/splunk/bin/splunk install app '/tmp/{{ app_url | basename }}' -auth admin:{{ splunk_instance.splunk_admin_password }}"
-          args:
-            executable: /bin/bash
-          notify: Restart Splunk
+            - name: Install Sample Data App
+              shell: "/opt/splunk/bin/splunk install app '/tmp/{{ app_url | basename }}' -auth admin:{{ splunk_instance.splunk_admin_password }}"
+              args:
+                executable: /bin/bash
+              notify: Restart Splunk
 
     - name: Download and Install BOTS v3 Dataset
-      become_user: splunk
       block:
         - name: Download BOTS v3 Dataset
           get_url:
@@ -102,32 +103,35 @@
           until: botsv3 is succeeded
 
         - name: Install BOTS v3 Dataset
+          become_user: splunk
           shell: "/opt/splunk/bin/splunk install app '/tmp/botsv3_data_set.tgz' -auth admin:{{ splunk_instance.splunk_admin_password }}"
           args:
             executable: /bin/bash
           notify: Restart Splunk
 
     - name: Download and Install Additional Splunk Apps
-      become_user: splunk
-      loop: "{{ additional_apps }}"
-      loop_control:
-        loop_var: app_url
       block:
-        - name: Download Additional App
-          get_url:
-            url: "{{ app_url }}"
-            dest: "/tmp/{{ app_url | basename }}"
-            mode: '0644'
-          register: additional_app
-          retries: 3
-          delay: 10
-          until: additional_app is succeeded
+        - name: Download and Install Additional Apps
+          become_user: splunk
+          loop: "{{ additional_apps }}"
+          loop_control:
+            loop_var: app_url
+          block:
+            - name: Download Additional App
+              get_url:
+                url: "{{ app_url }}"
+                dest: "/tmp/{{ app_url | basename }}"
+                mode: '0644'
+              register: additional_app
+              retries: 3
+              delay: 10
+              until: additional_app is succeeded
 
-        - name: Install Additional App
-          shell: "/opt/splunk/bin/splunk install app '/tmp/{{ app_url | basename }}' -auth admin:{{ splunk_instance.splunk_admin_password }}"
-          args:
-            executable: /bin/bash
-          notify: Restart Splunk
+            - name: Install Additional App
+              shell: "/opt/splunk/bin/splunk install app '/tmp/{{ app_url | basename }}' -auth admin:{{ splunk_instance.splunk_admin_password }}"
+              args:
+                executable: /bin/bash
+              notify: Restart Splunk
 
     - name: Ensure Splunk is Running
       become_user: splunk
