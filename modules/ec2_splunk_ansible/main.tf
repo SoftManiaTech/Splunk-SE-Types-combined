@@ -21,17 +21,19 @@ resource "local_file" "pem_file" {
 }
 
 
+# ✅ Create inventory file in ROOT
 resource "local_file" "ansible_inventory" {
-  filename = "${path.module}/inventory.ini"
+  filename = "${path.root}/inventory.ini"
 
   content = <<EOF
 [splunk]
-${var.instance_name} ansible_host=${module.base.public_ip} ansible_user=ec2-user ansible_ssh_private_key_file=${path.module}/${module.base.final_key_name}.pem
+${var.instance_name} ansible_host=${module.base.public_ip} ansible_user=ec2-user ansible_ssh_private_key_file=${module.base.final_key_name}.pem
 EOF
 }
 
+# ✅ Create group_vars in ROOT
 resource "local_file" "ansible_group_vars" {
-  filename = "${path.module}/group_vars.yml"
+  filename = "${path.root}/group_vars/all.yml"
 
   content = <<EOF
 ---
@@ -42,29 +44,6 @@ splunk_instance:
   splunk_admin_password: admin123
 EOF
 }
-
-resource "null_resource" "wait_for_ssh" {
-  provisioner "local-exec" {
-    command = "for i in {1..30}; do nc -zv ${module.base.public_ip} 22 && exit 0 || sleep 10; done; echo 'SSH not ready' && exit 1"
-  }
-}
-
-resource "null_resource" "ansible_provision" {
-  depends_on = [
-    local_file.ansible_inventory,
-    local_file.ansible_group_vars,
-    local_file.pem_file,
-    null_resource.wait_for_ssh
-  ]
-
-  provisioner "local-exec" {
-    command = <<EOT
-      chmod 400 ${path.module}/${module.base.final_key_name}.pem
-      ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i ${path.module}/inventory.ini ${path.module}/../../botsv3-setup.yml
-    EOT
-  }
-}
-
 
 output "public_ip" {
   value = module.base.public_ip
