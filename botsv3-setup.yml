@@ -15,13 +15,6 @@
     - name: Pause to ensure file download completion
       pause:
         seconds: 160
-
-    - name: Change Splunk Admin Password
-      become: yes
-      become_user: splunk
-      shell: "/opt/splunk/bin/splunk edit user admin -password {{ splunk_instance.splunk_admin_password }} -role admin -auth admin:SPLUNK-{{ splunk_instance.instance_id }}"
-      args:
-        executable: /bin/bash
     
     - name: Download and Add Tutorial Data to Splunk Monitoring
       become: yes
