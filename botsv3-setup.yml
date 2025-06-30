@@ -66,72 +66,70 @@
       args:
         executable: /bin/bash
 
-    - name: Download and Install Splunk Sample Data Apps
-      block:
-        - name: Download and Install Sample Data Apps
-          become_user: splunk
-          loop: "{{ sample_data_apps }}"
-          loop_control:
-            loop_var: app_url
-          block:
-            - name: Download Sample Data App
-              get_url:
-                url: "{{ app_url }}"
-                dest: "/tmp/{{ app_url | basename }}"
-                mode: '0644'
-              register: sample_app
-              retries: 3
-              delay: 10
-              until: sample_app is succeeded
+    - name: Download Sample Data Apps
+      become_user: splunk
+      get_url:
+        url: "{{ item }}"
+        dest: "/tmp/{{ item | basename }}"
+        mode: '0644'
+      loop: "{{ sample_data_apps }}"
+      loop_control:
+        loop_var: app_url
+      register: sample_app
+      retries: 3
+      delay: 10
+      until: sample_app is succeeded
 
-            - name: Install Sample Data App
-              shell: "/opt/splunk/bin/splunk install app '/tmp/{{ app_url | basename }}' -auth admin:{{ splunk_instance.splunk_admin_password }}"
-              args:
-                executable: /bin/bash
-              notify: Restart Splunk
+    - name: Install Sample Data Apps
+      become_user: splunk
+      shell: "/opt/splunk/bin/splunk install app '/tmp/{{ item | basename }}' -auth admin:{{ splunk_instance.splunk_admin_password }}"
+      args:
+        executable: /bin/bash
+      loop: "{{ sample_data_apps }}"
+      loop_control:
+        loop_var: app_url
+      notify: Restart Splunk
 
-    - name: Download and Install BOTS v3 Dataset
-      block:
-        - name: Download BOTS v3 Dataset
-          get_url:
-            url: "{{ botsv3_dataset_url }}"
-            dest: "/tmp/botsv3_data_set.tgz"
-            mode: '0644'
-          register: botsv3
-          retries: 3
-          delay: 10
-          until: botsv3 is succeeded
+    - name: Download BOTS v3 Dataset
+      get_url:
+        url: "{{ botsv3_dataset_url }}"
+        dest: "/tmp/botsv3_data_set.tgz"
+        mode: '0644'
+      register: botsv3
+      retries: 3
+      delay: 10
+      until: botsv3 is succeeded
 
-        - name: Install BOTS v3 Dataset
-          become_user: splunk
-          shell: "/opt/splunk/bin/splunk install app '/tmp/botsv3_data_set.tgz' -auth admin:{{ splunk_instance.splunk_admin_password }}"
-          args:
-            executable: /bin/bash
-          notify: Restart Splunk
+    - name: Install BOTS v3 Dataset
+      become_user: splunk
+      shell: "/opt/splunk/bin/splunk install app '/tmp/botsv3_data_set.tgz' -auth admin:{{ splunk_instance.splunk_admin_password }}"
+      args:
+        executable: /bin/bash
+      notify: Restart Splunk
 
-    - name: Download and Install Additional Splunk Apps
-      block:
-        - name: Download and Install Additional Apps
-          become_user: splunk
-          loop: "{{ additional_apps }}"
-          loop_control:
-            loop_var: app_url
-          block:
-            - name: Download Additional App
-              get_url:
-                url: "{{ app_url }}"
-                dest: "/tmp/{{ app_url | basename }}"
-                mode: '0644'
-              register: additional_app
-              retries: 3
-              delay: 10
-              until: additional_app is succeeded
+    - name: Download Additional Splunk Apps
+      become_user: splunk
+      get_url:
+        url: "{{ item }}"
+        dest: "/tmp/{{ item | basename }}"
+        mode: '0644'
+      loop: "{{ additional_apps }}"
+      loop_control:
+        loop_var: app_url
+      register: additional_app
+      retries: 3
+      delay: 10
+      until: additional_app is succeeded
 
-            - name: Install Additional App
-              shell: "/opt/splunk/bin/splunk install app '/tmp/{{ app_url | basename }}' -auth admin:{{ splunk_instance.splunk_admin_password }}"
-              args:
-                executable: /bin/bash
-              notify: Restart Splunk
+    - name: Install Additional Splunk Apps
+      become_user: splunk
+      shell: "/opt/splunk/bin/splunk install app '/tmp/{{ item | basename }}' -auth admin:{{ splunk_instance.splunk_admin_password }}"
+      args:
+        executable: /bin/bash
+      loop: "{{ additional_apps }}"
+      loop_control:
+        loop_var: app_url
+      notify: Restart Splunk
 
     - name: Ensure Splunk is Running
       become_user: splunk
