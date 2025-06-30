@@ -20,8 +20,18 @@ resource "local_file" "pem_file" {
   file_permission = "0400"
 }
 
+# ✅ Add a 25-second wait before creating Ansible files
+resource "null_resource" "wait_for_ssh_ready" {
+  provisioner "local-exec" {
+    command = "sleep 25"
+  }
 
-# ✅ Create inventory file in ROOT
+  triggers = {
+    always_run = timestamp()
+  }
+}
+
+# ✅ Create inventory file after wait
 resource "local_file" "ansible_inventory" {
   filename = "${path.root}/inventory.ini"
 
@@ -29,9 +39,11 @@ resource "local_file" "ansible_inventory" {
 [splunk]
 ${var.instance_name} ansible_host=${module.base.public_ip} ansible_user=ec2-user ansible_ssh_private_key_file=${abspath("${path.module}/${module.base.final_key_name}.pem")}
 EOF
+
+  depends_on = [null_resource.wait_for_ssh_ready]
 }
 
-# ✅ Create group_vars in ROOT
+# ✅ Create group_vars after wait
 resource "local_file" "ansible_group_vars" {
   filename = "${path.root}/group_vars/all.yml"
 
@@ -43,6 +55,8 @@ splunk_instance:
   instance_id: ${module.base.instance_id}
   splunk_admin_password: admin123
 EOF
+
+  depends_on = [null_resource.wait_for_ssh_ready]
 }
 
 output "public_ip" {
