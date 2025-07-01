@@ -27,36 +27,32 @@ provider "aws" {
   region = var.aws_region
 }
 
+# Get next available key name
 data "external" "key_check" {
-  program = ["${path.cwd}/scripts/check_key.sh", var.key_name, var.aws_region]
-}
-
-resource "random_integer" "suffix" {
-  min = 10
-  max = 99
+  program = ["${path.module}/scripts/check_key.sh", var.key_name, var.aws_region]
 }
 
 locals {
-  key_exists     = data.external.key_check.result.exists == "true"
-  suffix         = local.key_exists ? data.external.key_check.result.next_suffix : ""
-  final_key_name = "${var.key_name}${local.suffix}"
+  final_key_name = data.external.key_check.result.final_key_name
 }
 
+# Generate PEM key
 resource "tls_private_key" "generated_key" {
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
+# Create EC2 Key Pair
 resource "aws_key_pair" "generated_key_pair" {
   key_name   = local.final_key_name
   public_key = tls_private_key.generated_key.public_key_openssh
 }
 
+# Upload PEM to S3
 resource "aws_s3_object" "upload_pem_key" {
   bucket  = "splunk-deployment-test"
   key     = "${var.usermail}/keys/${local.final_key_name}.pem"
   content = tls_private_key.generated_key.private_key_pem
-
 }
 
 resource "random_id" "sg_suffix" {
@@ -80,7 +76,6 @@ resource "aws_security_group" "splunk_sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
 
   egress {
     from_port   = 0
@@ -116,8 +111,7 @@ resource "aws_instance" "splunk_server" {
     volume_size = var.storage_size
   }
 
-
-  user_data = file("splunk-setup.sh")
+  user_data = file("${path.cwd}/splunk-setup.sh")
 
   tags = {
     Name          = var.instance_name
@@ -150,7 +144,7 @@ resource "null_resource" "wait_for_ssh_ready" {
 
 # ✅ Create inventory file after wait
 resource "local_file" "ansible_inventory" {
-  filename = "${path.root}/inventory.ini"
+  filename = "inventory.ini"
 
   content = <<EOF
 [splunk]
@@ -162,7 +156,7 @@ EOF
 
 # ✅ Create group_vars after wait
 resource "local_file" "ansible_group_vars" {
-  filename = "${path.root}/group_vars/all.yml"
+  filename = "group_vars/all.yml"
 
   content = <<EOF
 ---

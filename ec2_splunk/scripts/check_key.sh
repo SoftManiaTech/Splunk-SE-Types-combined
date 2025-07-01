@@ -1,29 +1,34 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-KEY_BASE=$1
+KEY_NAME=$1
+AWS_REGION=$2
 
-# Get all matching key names
-KEYS=$(aws ec2 describe-key-pairs --query "KeyPairs[].KeyName" --output text)
+# Get all existing key names starting with the given prefix
+EXISTING_KEYS=$(aws ec2 describe-key-pairs --region "$AWS_REGION" --query "KeyPairs[?starts_with(KeyName, \`$KEY_NAME\`)].KeyName" --output text)
 
-# Filter keys starting with base key name
-MATCHED_KEYS=$(echo "$KEYS" | tr '\t' '\n' | grep "^${KEY_BASE}")
-
-# If no keys found, use original key name
-if [ -z "$MATCHED_KEYS" ]; then
-  echo "{\"exists\":\"false\", \"next_suffix\":\"\"}"
-  exit 0
+# If no existing keys, return the original key name
+if [ -z "$EXISTING_KEYS" ]; then
+    echo "{\"final_key_name\":\"$KEY_NAME\"}"
+    exit 0
 fi
 
-# Extract all suffix numbers and find max
-MAX=0
-for KEY in $MATCHED_KEYS; do
-  SUFFIX=$(echo "$KEY" | grep -oE '[0-9]+$')
-  if [ ! -z "$SUFFIX" ] && [ "$SUFFIX" -gt "$MAX" ]; then
-    MAX=$SUFFIX
-  fi
+# Find max suffix
+max_suffix=0
+for key in $EXISTING_KEYS; do
+    suffix=$(echo "$key" | sed -E "s/^$KEY_NAME-?([0-9]*)$/\1/")
+    if [[ "$suffix" =~ ^[0-9]+$ ]]; then
+        if [ "$suffix" -gt "$max_suffix" ]; then
+            max_suffix=$suffix
+        fi
+    elif [ "$key" == "$KEY_NAME" ]; then
+        if [ "$max_suffix" -eq 0 ]; then
+            max_suffix=0
+        fi
+    fi
 done
 
-# Calculate next suffix (increment by 2)
-NEXT=$((MAX + 2))
+# Next available key name
+next_suffix=$((max_suffix + 1))
+next_key_name="${KEY_NAME}-${next_suffix}"
 
-echo "{\"exists\":\"true\", \"next_suffix\":\"-${NEXT}\"}"
+echo "{\"final_key_name\":\"$next_key_name\"}"

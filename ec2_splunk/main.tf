@@ -21,28 +21,19 @@ terraform {
       version = "~> 2.0"
     }
   }
-  required_version = ">= 1.2.0"
 }
 
 provider "aws" {
   region = var.aws_region
 }
 
-# Check if key already exists
+# Get next available key name
 data "external" "key_check" {
-  program = ["${path.cwd}/scripts/check_key.sh", var.key_name, var.aws_region]
-}
-
-# Optional: Random suffix if needed
-resource "random_integer" "suffix" {
-  min = 10
-  max = 99
+  program = ["${path.module}/scripts/check_key.sh", var.key_name, var.aws_region]
 }
 
 locals {
-  key_exists     = data.external.key_check.result.exists == "true"
-  suffix         = local.key_exists ? data.external.key_check.result.next_suffix : ""
-  final_key_name = "${var.key_name}${local.suffix}"
+  final_key_name = data.external.key_check.result.final_key_name
 }
 
 # Generate PEM key
@@ -57,19 +48,17 @@ resource "aws_key_pair" "generated_key_pair" {
   public_key = tls_private_key.generated_key.public_key_openssh
 }
 
-# Upload PEM to S3 directly from memory
+# Upload PEM to S3
 resource "aws_s3_object" "upload_pem_key" {
-  bucket  = "splunk-deployment-prod"
+  bucket  = "splunk-deployment-test"
   key     = "${var.usermail}/keys/${local.final_key_name}.pem"
   content = tls_private_key.generated_key.private_key_pem
 }
 
-# Security group suffix
 resource "random_id" "sg_suffix" {
   byte_length = 2
 }
 
-# Security group
 resource "aws_security_group" "splunk_sg" {
   name        = "splunk-security-group-${random_id.sg_suffix.hex}"
   description = "Security group for Splunk server"
@@ -83,14 +72,7 @@ resource "aws_security_group" "splunk_sg" {
 
   ingress {
     from_port   = 8000
-    to_port     = 8000
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 8089
-    to_port     = 8089
+    to_port     = 9999
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -103,7 +85,6 @@ resource "aws_security_group" "splunk_sg" {
   }
 }
 
-# Latest RHEL 9 AMI
 data "aws_ami" "rhel9" {
   most_recent = true
 
@@ -120,7 +101,6 @@ data "aws_ami" "rhel9" {
   owners = ["309956199498"]
 }
 
-# EC2 instance
 resource "aws_instance" "splunk_server" {
   ami                    = data.aws_ami.rhel9.id
   instance_type          = var.instance_type
