@@ -23,6 +23,10 @@ terraform {
   }
 }
 
+provider "aws" {
+  region = var.aws_region
+}
+
 data "external" "key_check" {
   program = ["scripts/check_key.sh", var.key_name, var.aws_region]
 }
