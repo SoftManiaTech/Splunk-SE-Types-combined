@@ -1,0 +1,59 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - echo "Installing Terraform and Ansible..."
+      - yum install -y unzip wget ansible
+      - curl -o terraform.zip https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip
+      - unzip terraform.zip -d /usr/local/bin/
+      - terraform -version
+      - ansible --version
+
+  build:
+    commands:
+      - echo "Build Mode: ${build_mode}"
+
+      # 🚀 If build_mode is ec2_only
+      - |
+        if [ "${build_mode}" == "ec2_only" ]; then
+          echo "==== Running EC2 Only Deployment ===="
+          cd ec2_only
+          terraform init
+          terraform apply -auto-approve
+          exit 0
+        fi
+
+      # 🚀 If build_mode is splunk_install
+      - |
+        if [ "${build_mode}" == "splunk_install" ]; then
+          echo "==== Running EC2 Splunk Deployment ===="
+          cd ec2_splunk
+          terraform init
+          terraform apply -auto-approve
+          exit 0
+        fi
+
+      # 🚀 If build_mode is splunk_ansible
+      - |
+        if [ "${build_mode}" == "splunk_ansible" ]; then
+          echo "==== Running EC2 Splunk + Ansible Deployment ===="
+          cd ec2_splunk_ansible
+          terraform init
+          terraform apply -auto-approve
+          echo "Waiting for EC2 SSH to be ready..."
+          sleep 60
+          echo "Running Ansible Playbook..."
+          ansible-playbook -i inventory.ini botsv3-setup.yml
+          exit 0
+        fi
+
+      # 🚫 Invalid build_mode
+      - echo "Invalid build_mode specified!"
+      - exit 1
+
+artifacts:
+  files:
+    - '**/*'
