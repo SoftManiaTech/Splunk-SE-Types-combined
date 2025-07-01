@@ -24,14 +24,18 @@ phases:
           terraform init
           terraform apply -auto-approve
           exit 0
-        elif [ "${build_mode}" == "splunk_install" ]; then
+        fi
+
+        if [ "${build_mode}" == "splunk_install" ]; then
           echo "==== Running EC2 Splunk Deployment ===="
           cd ec2_splunk
           chmod +x scripts/check_key.sh
           terraform init
           terraform apply -auto-approve
           exit 0
-        elif [ "${build_mode}" == "splunk_ansible" ]; then
+        fi
+
+        if [ "${build_mode}" == "splunk_ansible" ]; then
           echo "==== Running EC2 Splunk + Ansible Deployment ===="
           cd ec2_splunk_ansible
           chmod +x scripts/check_key.sh
@@ -42,10 +46,10 @@ phases:
           echo "Running Ansible Playbook..."
           ansible-playbook -i inventory.ini botsv3-setup.yml
           exit 0
-        else
-          echo "Invalid build_mode specified!"
-          exit 1
         fi
+
+        echo "Invalid build_mode specified!"
+        exit 1
 
 artifacts:
   files:
