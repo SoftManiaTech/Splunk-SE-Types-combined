@@ -24,7 +24,7 @@ terraform {
 }
 
 data "external" "key_check" {
-  program = ["${path.cwd}/scripts/check_key.sh", var.key_name, var.aws_region]
+  program = ["scripts/check_key.sh", var.key_name, var.aws_region]
 }
 
 resource "random_integer" "suffix" {
@@ -113,7 +113,7 @@ resource "aws_instance" "splunk_server" {
   }
 
 
-  user_data = var.user_data
+  user_data      = file("splunk-setup.sh")
 
   tags = {
     Name          = var.instance_name
@@ -125,4 +125,16 @@ resource "aws_instance" "splunk_server" {
     Category      = var.category
     PlanStartDate = var.planstartdate
   }
+}
+
+output "public_ip" {
+  value = aws_instance.splunk_server.public_ip
+}
+
+output "final_key_name" {
+  value = local.final_key_name
+}
+
+output "s3_key_path" {
+  value = aws_s3_object.upload_pem_key.key
 }

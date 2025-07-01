@@ -1,0 +1,28 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.8
+    commands:
+      - echo Installing Terraform...
+      - yum install -y unzip wget
+      - wget https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
+      - unzip terraform_1.5.7_linux_amd64.zip
+      - mv terraform /usr/local/bin/
+      - terraform --version
+
+  pre_build:
+    commands:
+      - echo "Downloading dynamic tfvars from S3..."
+      - aws s3 cp s3://splunk-deployment-test/terraform.tfvars terraform.tfvars
+
+  build:
+    commands:
+      - chmod +x scripts/check_key.sh
+      - terraform init
+      - terraform apply -auto-approve
+
+  post_build:
+    commands:
+      - echo "EC2 Splunk Deployment Completed Successfully!"
