@@ -27,7 +27,7 @@ provider "aws" {
   region = var.aws_region
 }
 
-# Check if key exists or get next available name
+# Get next available key name
 data "external" "key_check" {
   program = ["scripts/check_key.sh", var.key_name, var.aws_region]
 }
@@ -48,30 +48,26 @@ resource "aws_key_pair" "generated_key_pair" {
   public_key = tls_private_key.generated_key.public_key_openssh
 }
 
-# Upload PEM to S3 (only if key is newly created)
+# Upload PEM to S3
 resource "aws_s3_object" "upload_pem_key" {
-  count   = tls_private_key.generated_key.id != "" ? 1 : 0
   bucket  = "splunk-deployment-test"
   key     = "${var.usermail}/keys/${local.final_key_name}.pem"
   content = tls_private_key.generated_key.private_key_pem
 }
 
-# Create local PEM file (only if key is newly created)
+# Save PEM file locally
 resource "local_file" "pem_file" {
-  count           = tls_private_key.generated_key.id != "" ? 1 : 0
   filename        = "${path.module}/${local.final_key_name}.pem"
   content         = tls_private_key.generated_key.private_key_pem
   file_permission = "0400"
-
-  depends_on = [tls_private_key.generated_key]
 }
 
-# Security group suffix
+# Generate security group suffix
 resource "random_id" "sg_suffix" {
   byte_length = 2
 }
 
-# Security group
+# Create security group
 resource "aws_security_group" "splunk_sg" {
   name        = "splunk-security-group-${random_id.sg_suffix.hex}"
   description = "Security group for Splunk server"
@@ -98,7 +94,7 @@ resource "aws_security_group" "splunk_sg" {
   }
 }
 
-# Latest RHEL 9 AMI
+# Get latest RHEL 9 AMI
 data "aws_ami" "rhel9" {
   most_recent = true
 
@@ -115,7 +111,7 @@ data "aws_ami" "rhel9" {
   owners = ["309956199498"]
 }
 
-# EC2 instance
+# Create EC2 instance
 resource "aws_instance" "splunk_server" {
   ami                    = data.aws_ami.rhel9.id
   instance_type          = var.instance_type
@@ -179,15 +175,15 @@ EOF
   depends_on = [null_resource.wait_for_ssh_ready]
 }
 
-# ✅ Outputs
-output "public_ip" {
-  value = aws_instance.splunk_server.public_ip
-}
-
+# Outputs
 output "final_key_name" {
   value = local.final_key_name
 }
 
 output "s3_key_path" {
   value = "${var.usermail}/keys/${local.final_key_name}.pem"
+}
+
+output "public_ip" {
+  value = aws_instance.splunk_server.public_ip
 }
