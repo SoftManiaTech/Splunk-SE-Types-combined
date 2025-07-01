@@ -27,9 +27,9 @@ provider "aws" {
   region = var.aws_region
 }
 
-# Get next available key name
+# Check if key exists or get next available name
 data "external" "key_check" {
-  program = ["${path.module}/scripts/check_key.sh", var.key_name, var.aws_region]
+  program = ["scripts/check_key.sh", var.key_name, var.aws_region]
 }
 
 locals {
@@ -48,17 +48,30 @@ resource "aws_key_pair" "generated_key_pair" {
   public_key = tls_private_key.generated_key.public_key_openssh
 }
 
-# Upload PEM to S3
+# Upload PEM to S3 (only if key is newly created)
 resource "aws_s3_object" "upload_pem_key" {
+  count   = tls_private_key.generated_key.id != "" ? 1 : 0
   bucket  = "splunk-deployment-test"
   key     = "${var.usermail}/keys/${local.final_key_name}.pem"
   content = tls_private_key.generated_key.private_key_pem
 }
 
+# Create local PEM file (only if key is newly created)
+resource "local_file" "pem_file" {
+  count           = tls_private_key.generated_key.id != "" ? 1 : 0
+  filename        = "${path.module}/${local.final_key_name}.pem"
+  content         = tls_private_key.generated_key.private_key_pem
+  file_permission = "0400"
+
+  depends_on = [tls_private_key.generated_key]
+}
+
+# Security group suffix
 resource "random_id" "sg_suffix" {
   byte_length = 2
 }
 
+# Security group
 resource "aws_security_group" "splunk_sg" {
   name        = "splunk-security-group-${random_id.sg_suffix.hex}"
   description = "Security group for Splunk server"
@@ -85,6 +98,7 @@ resource "aws_security_group" "splunk_sg" {
   }
 }
 
+# Latest RHEL 9 AMI
 data "aws_ami" "rhel9" {
   most_recent = true
 
@@ -101,6 +115,7 @@ data "aws_ami" "rhel9" {
   owners = ["309956199498"]
 }
 
+# EC2 instance
 resource "aws_instance" "splunk_server" {
   ami                    = data.aws_ami.rhel9.id
   instance_type          = var.instance_type
@@ -111,7 +126,7 @@ resource "aws_instance" "splunk_server" {
     volume_size = var.storage_size
   }
 
-  user_data = file("${path.cwd}/splunk-setup.sh")
+  user_data = file("splunk-setup.sh")
 
   tags = {
     Name          = var.instance_name
@@ -125,13 +140,7 @@ resource "aws_instance" "splunk_server" {
   }
 }
 
-resource "local_file" "pem_file" {
-  filename        = "${path.module}/${local.final_key_name}.pem"
-  content         = module.base.private_key
-  file_permission = "0400"
-}
-
-# ✅ Add a 25-second wait before creating Ansible files
+# ✅ Add wait time for SSH readiness
 resource "null_resource" "wait_for_ssh_ready" {
   provisioner "local-exec" {
     command = "sleep 85"
@@ -142,7 +151,7 @@ resource "null_resource" "wait_for_ssh_ready" {
   }
 }
 
-# ✅ Create inventory file after wait
+# ✅ Create Ansible inventory file
 resource "local_file" "ansible_inventory" {
   filename = "inventory.ini"
 
@@ -154,7 +163,7 @@ EOF
   depends_on = [null_resource.wait_for_ssh_ready]
 }
 
-# ✅ Create group_vars after wait
+# ✅ Create Ansible group_vars
 resource "local_file" "ansible_group_vars" {
   filename = "group_vars/all.yml"
 
@@ -170,6 +179,7 @@ EOF
   depends_on = [null_resource.wait_for_ssh_ready]
 }
 
+# ✅ Outputs
 output "public_ip" {
   value = aws_instance.splunk_server.public_ip
 }
@@ -179,5 +189,5 @@ output "final_key_name" {
 }
 
 output "s3_key_path" {
-  value = aws_s3_object.upload_pem_key.key
+  value = "${var.usermail}/keys/${local.final_key_name}.pem"
 }
