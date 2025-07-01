@@ -47,8 +47,3 @@ variable "planstartdate" {
   description = "Start date of the EC2 plan in ISO format"
   type        = string
 }
-
-variable "user_data" {
-  description = "Optional user data script for EC2 provisioning"
-  type        = string
-}
