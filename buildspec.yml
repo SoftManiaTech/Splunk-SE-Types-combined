@@ -3,12 +3,13 @@ version: 0.2
 phases:
   install:
     runtime-versions:
-      python: 3.11
+      python: 3.8
     commands:
       - echo "Installing Terraform and Ansible..."
       - yum install -y unzip wget ansible
-      - curl -o terraform.zip https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip
-      - unzip terraform.zip -d /usr/local/bin/
+      - wget https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
+      - unzip terraform_1.5.7_linux_amd64.zip
+      - mv terraform /usr/local/bin/
       - terraform -version
       - ansible --version
 
@@ -16,31 +17,31 @@ phases:
     commands:
       - echo "Build Mode: ${build_mode}"
 
-      # 🚀 If build_mode is ec2_only
       - |
         if [ "${build_mode}" == "ec2_only" ]; then
           echo "==== Running EC2 Only Deployment ===="
           cd ec2_only
+          chmod +x scripts/check_key.sh
           terraform init
           terraform apply -auto-approve
           exit 0
         fi
 
-      # 🚀 If build_mode is splunk_install
       - |
         if [ "${build_mode}" == "splunk_install" ]; then
           echo "==== Running EC2 Splunk Deployment ===="
           cd ec2_splunk
+          chmod +x scripts/check_key.sh
           terraform init
           terraform apply -auto-approve
           exit 0
         fi
 
-      # 🚀 If build_mode is splunk_ansible
       - |
         if [ "${build_mode}" == "splunk_ansible" ]; then
           echo "==== Running EC2 Splunk + Ansible Deployment ===="
           cd ec2_splunk_ansible
+          chmod +x scripts/check_key.sh
           terraform init
           terraform apply -auto-approve
           echo "Waiting for EC2 SSH to be ready..."
@@ -50,7 +51,6 @@ phases:
           exit 0
         fi
 
-      # 🚫 Invalid build_mode
       - echo "Invalid build_mode specified!"
       - exit 1
 
