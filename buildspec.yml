@@ -47,6 +47,6 @@ phases:
           exit 1;
         fi
 
-artifacts:
-  files:
-    - '**/*'
+  post_build:
+    commands:
+      - echo "Deployment Completed Successfully!"
