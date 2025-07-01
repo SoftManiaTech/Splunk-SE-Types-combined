@@ -29,7 +29,7 @@ provider "aws" {
 
 # Get next available key name
 data "external" "key_check" {
-  program = ["scripts/check_key.sh", var.key_name, var.aws_region]
+  program = ["${path.module}/scripts/check_key.sh", var.key_name, var.aws_region]
 }
 
 locals {
