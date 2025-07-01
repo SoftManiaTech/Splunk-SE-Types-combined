@@ -16,7 +16,7 @@ phases:
   pre_build:
     commands:
       - echo "Downloading terraform.tfvars from S3..."
-      - aws s3 cp s3://splunk-deployment-test/terraform.tfvars terraform.tfvars
+      - aws s3 cp s3://splunk-deployment-test/${TFVARS_S3_KEY} terraform.tfvars
       - echo "Extracting build_mode from terraform.tfvars..."
       - export BUILD_MODE=$(grep 'build_mode' terraform.tfvars | awk -F'=' '{print $2}' | tr -d ' "')
       - echo "Selected Build Mode: $BUILD_MODE"
@@ -24,35 +24,36 @@ phases:
   build:
     commands:
       - echo "Executing Build Mode: $BUILD_MODE"
-      - >
+      - echo "Running deployment based on build_mode"
+      - |
         if [ "$BUILD_MODE" == "ec2_only" ]; then
-          echo "==== Running EC2 Only Deployment ====";
-          cd ec2_only;
-          chmod +x scripts/check_key.sh;
-          terraform init;
-          terraform apply -auto-approve;
+          echo "==== Running EC2 Only Deployment ===="
+          cd ec2_only
+          chmod +x scripts/check_key.sh
+          terraform init
+          terraform apply -auto-approve
 
         elif [ "$BUILD_MODE" == "splunk_install" ]; then
-          echo "==== Running EC2 Splunk Deployment ====";
-          cd ec2_splunk;
-          chmod +x scripts/check_key.sh;
-          terraform init;
-          terraform apply -auto-approve;
+          echo "==== Running EC2 Splunk Deployment ===="
+          cd ec2_splunk
+          chmod +x scripts/check_key.sh
+          terraform init
+          terraform apply -auto-approve
 
         elif [ "$BUILD_MODE" == "splunk_ansible" ]; then
-          echo "==== Running EC2 Splunk + Ansible Deployment ====";
-          cd ec2_splunk_ansible;
-          chmod +x scripts/check_key.sh;
-          terraform init;
-          terraform apply -auto-approve;
-          echo "Waiting for EC2 SSH to be ready...";
-          sleep 60;
-          echo "Running Ansible Playbook...";
-          ansible-playbook -i inventory.ini botsv3-setup.yml;
+          echo "==== Running EC2 Splunk + Ansible Deployment ===="
+          cd ec2_splunk_ansible
+          chmod +x scripts/check_key.sh
+          terraform init
+          terraform apply -auto-approve
+          echo "Waiting for EC2 SSH to be ready..."
+          sleep 60
+          echo "Running Ansible Playbook..."
+          ansible-playbook -i inventory.ini botsv3-setup.yml
 
         else
-          echo "Invalid build_mode specified in terraform.tfvars!";
-          exit 1;
+          echo "Invalid build_mode specified in terraform.tfvars!"
+          exit 1
         fi
 
   post_build:
