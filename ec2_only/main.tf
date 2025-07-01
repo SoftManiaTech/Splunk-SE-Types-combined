@@ -21,16 +21,19 @@ terraform {
       version = "~> 2.0"
     }
   }
+  required_version = ">= 1.2.0"
 }
 
 provider "aws" {
   region = var.aws_region
 }
 
+# Check if key already exists
 data "external" "key_check" {
-  program = ["scripts/check_key.sh", var.key_name, var.aws_region]
+  program = ["${path.cwd}/scripts/check_key.sh", var.key_name, var.aws_region]
 }
 
+# Optional: Random suffix if needed
 resource "random_integer" "suffix" {
   min = 10
   max = 99
@@ -42,27 +45,31 @@ locals {
   final_key_name = "${var.key_name}${local.suffix}"
 }
 
+# Generate PEM key
 resource "tls_private_key" "generated_key" {
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
+# Create EC2 Key Pair
 resource "aws_key_pair" "generated_key_pair" {
   key_name   = local.final_key_name
   public_key = tls_private_key.generated_key.public_key_openssh
 }
 
+# Upload PEM to S3 directly from memory
 resource "aws_s3_object" "upload_pem_key" {
   bucket  = "splunk-deployment-test"
   key     = "${var.usermail}/keys/${local.final_key_name}.pem"
   content = tls_private_key.generated_key.private_key_pem
-
 }
 
+# Security group suffix
 resource "random_id" "sg_suffix" {
   byte_length = 2
 }
 
+# Security group
 resource "aws_security_group" "splunk_sg" {
   name        = "splunk-security-group-${random_id.sg_suffix.hex}"
   description = "Security group for Splunk server"
@@ -76,11 +83,17 @@ resource "aws_security_group" "splunk_sg" {
 
   ingress {
     from_port   = 8000
-    to_port     = 9999
+    to_port     = 8000
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+    from_port   = 8089
+    to_port     = 8089
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
   egress {
     from_port   = 0
@@ -90,6 +103,7 @@ resource "aws_security_group" "splunk_sg" {
   }
 }
 
+# Latest RHEL 9 AMI
 data "aws_ami" "rhel9" {
   most_recent = true
 
@@ -106,6 +120,7 @@ data "aws_ami" "rhel9" {
   owners = ["309956199498"]
 }
 
+# EC2 instance
 resource "aws_instance" "splunk_server" {
   ami                    = data.aws_ami.rhel9.id
   instance_type          = var.instance_type
@@ -128,15 +143,15 @@ resource "aws_instance" "splunk_server" {
   }
 }
 
-output "public_ip" {
-  value = aws_instance.splunk_server.public_ip
-}
-
+# Outputs
 output "final_key_name" {
   value = local.final_key_name
 }
 
 output "s3_key_path" {
-  value = aws_s3_object.upload_pem_key.key
+  value = "${var.usermail}/keys/${local.final_key_name}.pem"
 }
 
+output "public_ip" {
+  value = aws_instance.splunk_server.public_ip
+}
