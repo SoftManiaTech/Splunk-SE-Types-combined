@@ -21,43 +21,38 @@ terraform {
       version = "~> 2.0"
     }
   }
-  required_version = ">= 1.2.0"
 }
 
 provider "aws" {
   region = var.aws_region
 }
 
-# Check if key exists
+# Get next available key name
 data "external" "key_check" {
-  program = ["scripts/check_key.sh", var.key_name, var.aws_region]
+  program = ["${path.module}/scripts/check_key.sh", var.key_name, var.aws_region]
 }
 
 locals {
-  key_exists     = data.external.key_check.result.exists == "true"
-  final_key_name = var.key_name
+  final_key_name = data.external.key_check.result.final_key_name
 }
 
-# Generate PEM key only if key not exists
+# Generate PEM key
 resource "tls_private_key" "generated_key" {
-  count     = local.key_exists ? 0 : 1
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
-# Create EC2 Key Pair only if key not exists
+# Create EC2 Key Pair
 resource "aws_key_pair" "generated_key_pair" {
-  count      = local.key_exists ? 0 : 1
   key_name   = local.final_key_name
-  public_key = tls_private_key.generated_key[0].public_key_openssh
+  public_key = tls_private_key.generated_key.public_key_openssh
 }
 
-# Upload PEM to S3 if key not exists
+# Upload PEM to S3
 resource "aws_s3_object" "upload_pem_key" {
-  count   = local.key_exists ? 0 : 1
   bucket  = "splunk-deployment-test"
   key     = "${var.usermail}/keys/${local.final_key_name}.pem"
-  content = tls_private_key.generated_key[0].private_key_pem
+  content = tls_private_key.generated_key.private_key_pem
 }
 
 resource "random_id" "sg_suffix" {
@@ -116,7 +111,7 @@ data "aws_ami" "rhel9" {
 resource "aws_instance" "splunk_server" {
   ami                    = data.aws_ami.rhel9.id
   instance_type          = var.instance_type
-  key_name               = local.final_key_name
+  key_name               = aws_key_pair.generated_key_pair.key_name
   vpc_security_group_ids = [aws_security_group.splunk_sg.id]
 
   root_block_device {
@@ -135,6 +130,7 @@ resource "aws_instance" "splunk_server" {
   }
 }
 
+# Outputs
 output "final_key_name" {
   value = local.final_key_name
 }
