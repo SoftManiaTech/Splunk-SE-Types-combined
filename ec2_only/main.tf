@@ -28,42 +28,48 @@ provider "aws" {
   region = var.aws_region
 }
 
-# Check if key exists
+# Check if key already exists
 data "external" "key_check" {
-  program = ["${path.cwd}/scripts/check_key.sh", var.key_name, var.aws_region]
+  program = ["scripts/check_key.sh", var.key_name, var.aws_region]
+}
+
+# Optional: Random suffix if needed
+resource "random_integer" "suffix" {
+  min = 10
+  max = 99
 }
 
 locals {
   key_exists     = data.external.key_check.result.exists == "true"
-  final_key_name = var.key_name
+  suffix         = local.key_exists ? data.external.key_check.result.next_suffix : ""
+  final_key_name = "${var.key_name}${local.suffix}"
 }
 
-# Generate PEM key only if key not exists
+# Generate PEM key
 resource "tls_private_key" "generated_key" {
-  count     = local.key_exists ? 0 : 1
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
-# Create EC2 Key Pair only if key not exists
+# Create EC2 Key Pair
 resource "aws_key_pair" "generated_key_pair" {
-  count      = local.key_exists ? 0 : 1
   key_name   = local.final_key_name
-  public_key = tls_private_key.generated_key[0].public_key_openssh
+  public_key = tls_private_key.generated_key.public_key_openssh
 }
 
-# Upload PEM to S3 if key not exists
+# Upload PEM to S3 directly from memory
 resource "aws_s3_object" "upload_pem_key" {
-  count   = local.key_exists ? 0 : 1
   bucket  = "splunk-deployment-test"
   key     = "${var.usermail}/keys/${local.final_key_name}.pem"
-  content = tls_private_key.generated_key[0].private_key_pem
+  content = tls_private_key.generated_key.private_key_pem
 }
 
+# Security group suffix
 resource "random_id" "sg_suffix" {
   byte_length = 2
 }
 
+# Security group
 resource "aws_security_group" "splunk_sg" {
   name        = "splunk-security-group-${random_id.sg_suffix.hex}"
   description = "Security group for Splunk server"
@@ -97,6 +103,7 @@ resource "aws_security_group" "splunk_sg" {
   }
 }
 
+# Latest RHEL 9 AMI
 data "aws_ami" "rhel9" {
   most_recent = true
 
@@ -113,10 +120,11 @@ data "aws_ami" "rhel9" {
   owners = ["309956199498"]
 }
 
+# EC2 instance
 resource "aws_instance" "splunk_server" {
   ami                    = data.aws_ami.rhel9.id
   instance_type          = var.instance_type
-  key_name               = local.final_key_name
+  key_name               = aws_key_pair.generated_key_pair.key_name
   vpc_security_group_ids = [aws_security_group.splunk_sg.id]
 
   root_block_device {
@@ -135,6 +143,7 @@ resource "aws_instance" "splunk_server" {
   }
 }
 
+# Outputs
 output "final_key_name" {
   value = local.final_key_name
 }
